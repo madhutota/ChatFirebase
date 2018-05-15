@@ -15,7 +15,8 @@
         android:id="@+id/message_swipe_layout"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_above="@+id/linearLayout"
+        android:layout_above="@+id/ll_location"
+        android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
         android:layout_below="@+id/chat_app_bar">
 
@@ -24,16 +25,74 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:layout_above="@+id/linearLayout"
+            android:layout_alignParentLeft="true"
             android:layout_alignParentStart="true"
-            android:layout_below="@+id/chat_app_bar"></android.support.v7.widget.RecyclerView>
+            android:layout_below="@+id/chat_app_bar" />
 
     </android.support.v4.widget.SwipeRefreshLayout>
+
+
+    <LinearLayout
+        android:id="@+id/ll_location"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_above="@+id/linearLayout"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        android:weightSum="4">
+
+        <ImageButton
+            android:id="@+id/btn_camera"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:alpha="0.5"
+            android:background="@android:color/white"
+            android:padding="10dp"
+            app:srcCompat="@drawable/camera"
+            tools:ignore="VectorDrawableCompat" />
+
+        <ImageButton
+            android:id="@+id/btn_video"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:alpha="0.5"
+            android:background="@android:color/white"
+            android:padding="10dp"
+            app:srcCompat="@drawable/video"
+            tools:ignore="VectorDrawableCompat" />
+
+        <ImageButton
+            android:id="@+id/btn_gallery"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:alpha="0.5"
+            android:background="@android:color/white"
+            android:padding="10dp"
+            app:srcCompat="@drawable/images"
+            tools:ignore="VectorDrawableCompat" />
+
+        <ImageButton
+            android:id="@+id/btn_location"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:alpha="0.5"
+            android:background="@android:color/white"
+            android:padding="10dp"
+            app:srcCompat="@drawable/location"
+            tools:ignore="VectorDrawableCompat" />
+
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/linearLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
         android:layout_alignParentStart="true"
         android:background="@android:color/white"
         android:orientation="horizontal"

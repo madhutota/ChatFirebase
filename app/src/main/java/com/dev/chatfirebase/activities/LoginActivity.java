@@ -2,10 +2,12 @@ package com.dev.chatfirebase.activities;
 
 import android.app.ProgressDialog;
 import android.content.Intent;
+import android.os.Build;
+import android.os.Bundle;
 import android.support.annotation.NonNull;
+import android.support.annotation.RequiresApi;
 import android.support.design.widget.TextInputLayout;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
 import android.support.v7.widget.Toolbar;
 import android.text.TextUtils;
 import android.view.View;
@@ -21,6 +23,8 @@ import com.google.firebase.auth.FirebaseAuth;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.iid.FirebaseInstanceId;
+
+import java.util.Objects;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -38,6 +42,7 @@ public class LoginActivity extends AppCompatActivity {
     private DatabaseReference mUserDatabase;
 
 
+    @RequiresApi(api = Build.VERSION_CODES.KITKAT)
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -47,7 +52,7 @@ public class LoginActivity extends AppCompatActivity {
 
         mToolbar = (Toolbar) findViewById(R.id.login_toolbar);
         setSupportActionBar(mToolbar);
-        getSupportActionBar().setDisplayHomeAsUpEnabled(true);
+        Objects.requireNonNull(getSupportActionBar()).setDisplayHomeAsUpEnabled(true);
         getSupportActionBar().setTitle("Login");
 
 
@@ -64,10 +69,10 @@ public class LoginActivity extends AppCompatActivity {
             @Override
             public void onClick(View view) {
 
-                String email = mLoginEmail.getEditText().getText().toString();
-                String password = mLoginPassword.getEditText().getText().toString();
+                String email = Objects.requireNonNull(mLoginEmail.getEditText()).getText().toString();
+                String password = Objects.requireNonNull(mLoginPassword.getEditText()).getText().toString();
 
-                if(!TextUtils.isEmpty(email) || !TextUtils.isEmpty(password)){
+                if (!TextUtils.isEmpty(email) || !TextUtils.isEmpty(password)) {
 
                     mLoginProgress.setTitle("Logging In");
                     mLoginProgress.setMessage("Please wait while we check your credentials.");
@@ -85,22 +90,24 @@ public class LoginActivity extends AppCompatActivity {
     }
 
 
-
     private void loginUser(String email, String password) {
 
 
-        mAuth.signInWithEmailAndPassword(email, password).addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+        mAuth.signInWithEmailAndPassword(email, password).
+                addOnCompleteListener(new OnCompleteListener<AuthResult>() {
+            @RequiresApi(api = Build.VERSION_CODES.KITKAT)
             @Override
             public void onComplete(@NonNull Task<AuthResult> task) {
 
-                if(task.isSuccessful()){
+                if (task.isSuccessful()) {
 
                     mLoginProgress.dismiss();
 
-                    String current_user_id = mAuth.getCurrentUser().getUid();
+                    String current_user_id = Objects.requireNonNull(mAuth.getCurrentUser()).getUid();
                     String deviceToken = FirebaseInstanceId.getInstance().getToken();
 
-                    mUserDatabase.child(current_user_id).child("device_token").setValue(deviceToken).addOnSuccessListener(new OnSuccessListener<Void>() {
+                    mUserDatabase.child(current_user_id).child("device_token").setValue(deviceToken).
+                            addOnSuccessListener(new OnSuccessListener<Void>() {
                         @Override
                         public void onSuccess(Void aVoid) {
 
@@ -114,13 +121,11 @@ public class LoginActivity extends AppCompatActivity {
                     });
 
 
-
-
                 } else {
 
                     mLoginProgress.hide();
 
-                    String task_result = task.getException().getMessage().toString();
+                    String task_result = Objects.requireNonNull(task.getException()).getMessage();
 
                     Toast.makeText(LoginActivity.this, "Error : " + task_result, Toast.LENGTH_LONG).show();
 
