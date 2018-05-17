@@ -5,7 +5,10 @@ import android.content.Context;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
+import android.support.v4.content.FileProvider;
 import android.support.v4.widget.SwipeRefreshLayout;
 import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
@@ -21,12 +24,15 @@ import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import com.dev.chatfirebase.BuildConfig;
 import com.dev.chatfirebase.R;
+import com.dev.chatfirebase.activities.utils.Utility;
 import com.dev.chatfirebase.models.ChatModel;
 import com.dev.chatfirebase.models.FileModel;
 import com.dev.chatfirebase.models.MapModel;
-import com.dev.chatfirebase.utils.Constants;
+import com.dev.chatfirebase.models.MessageModel;
 import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
 import com.google.android.gms.common.GooglePlayServicesRepairableException;
 import com.google.android.gms.location.places.Place;
@@ -54,8 +60,8 @@ import com.karumi.dexter.PermissionToken;
 import com.karumi.dexter.listener.PermissionRequest;
 import com.karumi.dexter.listener.multi.MultiplePermissionsListener;
 
+import java.io.File;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -63,9 +69,15 @@ import java.util.Map;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
+import static android.provider.MediaStore.Files.FileColumns.MEDIA_TYPE_VIDEO;
+import static com.dev.chatfirebase.activities.utils.Utility.getOutputMediaFileUri;
+import static com.dev.chatfirebase.utils.Constants.CAMERA_CAPTURE_VIDEO_REQUEST_CODE;
+import static com.dev.chatfirebase.utils.Constants.IMAGE_CAMERA_REQUEST;
 import static com.dev.chatfirebase.utils.Constants.PLACE_PICKER_REQUEST;
+import static com.dev.chatfirebase.utils.Constants.REQUEST_VIDEO_CAPTURE;
 
-public class ChatActivity extends AppCompatActivity implements View.OnClickListener {
+public class ChatActivity extends AppCompatActivity implements View.OnClickListener, ClickListenerChatFirebase {
+    public static final String TAG = ChatActivity.class.getSimpleName();
 
     private LinearLayout ll_location;
 
@@ -91,7 +103,6 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     private ImageButton btn_location;
 
 
-
     private EditText mChatMessageView;
 
     private RecyclerView mMessagesList;
@@ -115,6 +126,8 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
     private String mLastKey = "";
     private String mPrevKey = "";
+    private File filePathImageCamera;
+    private Uri fileUri;
 
 
     @Override
@@ -225,7 +238,6 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             public void onDataChange(DataSnapshot dataSnapshot) {
 
                 if (!dataSnapshot.hasChild(mChatUser)) {
-
                     Map chatAddMap = new HashMap();
                     chatAddMap.put("seen", false);
                     chatAddMap.put("timestamp", ServerValue.TIMESTAMP);
@@ -240,7 +252,7 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
                             if (databaseError != null) {
 
-                                Log.d("CHAT_LOG", databaseError.getMessage().toString());
+                                //  Log.d("CHAT_LOG", databaseError.getMessage().toString());
 
                             }
 
@@ -296,11 +308,11 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onRefresh() {
 
-                mCurrentPage++;
+                /*mCurrentPage++;
 
                 itemPos = 0;
-
-                loadMoreMessages();
+*/
+                loadMessages();
 
 
             }
@@ -314,75 +326,170 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
 
-        if (requestCode == GALLERY_PICK && resultCode == RESULT_OK) {
+        if (requestCode == GALLERY_PICK) {
 
             Uri imageUri = data.getData();
 
-            final String current_user_ref = "messages/" + mCurrentUserId + "/" + mChatUser;
-            final String chat_user_ref = "messages/" + mChatUser + "/" + mCurrentUserId;
+            sendImageToFireBase(imageUri);
 
-            DatabaseReference user_message_push = mRootRef.child("messages")
-                    .child(mCurrentUserId).child(mChatUser).push();
+        } else if (requestCode == PLACE_PICKER_REQUEST) {
+            if (resultCode == RESULT_OK) {
 
-            final String push_id = user_message_push.getKey();
-
-
-            StorageReference filepath = mImageStorage.child("message_images").child(push_id + ".jpg");
-
-            filepath.putFile(imageUri).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
-                @Override
-                public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
-
-                    if (task.isSuccessful()) {
-
-                        String download_url = task.getResult().getDownloadUrl().toString();
-
-
-                        Map messageMap = new HashMap();
-                        messageMap.put("message", download_url);
-                        messageMap.put("seen", false);
-                        messageMap.put("type", "image");
-                        messageMap.put("time", ServerValue.TIMESTAMP);
-                        messageMap.put("from", mCurrentUserId);
-
-                        Map messageUserMap = new HashMap();
-                        messageUserMap.put(current_user_ref + "/" + push_id, messageMap);
-                        messageUserMap.put(chat_user_ref + "/" + push_id, messageMap);
-
-                        mChatMessageView.setText("");
-
-                        mRootRef.updateChildren(messageUserMap, new DatabaseReference.CompletionListener() {
-                            @Override
-                            public void onComplete(DatabaseError databaseError, DatabaseReference databaseReference) {
-
-                                if (databaseError != null) {
-
-                                    Log.d("CHAT_LOG", databaseError.getMessage().toString());
-
-                                }
-
-                            }
-                        });
-
-
-                    }
-
-                }
-            });
-
-        }else if (requestCode == PLACE_PICKER_REQUEST){
-
-            Place place = PlacePicker.getPlace(this, data);
-            if (place!=null){
-                LatLng latLng = place.getLatLng();
-                MapModel mapModel = new MapModel(latLng.latitude+"",latLng.longitude+"");
-               /* ChatModel chatModel = new ChatModel(userModel, Calendar.getInstance().getTime().getTime()+"",mapModel);
+                Place place = PlacePicker.getPlace(this, data);
+                if (place != null) {
+                    LatLng latLng = place.getLatLng();
+                    sendLocationToFirebase(latLng, place);
+                    /* MapModel mapModel = new MapModel(latLng.latitude + "", latLng.longitude + "");
+                     *//* ChatModel chatModel = new ChatModel(userModel, Calendar.getInstance().getTime().getTime()+"",mapModel);
                 mFirebaseDatabaseReference.child(CHAT_REFERENCE).push().setValue(chatModel);*/
-            }else{
-                //PLACE IS NULL
+                } else {
+                    //PLACE IS NULL
+                }
             }
 
+        } else if (requestCode == IMAGE_CAMERA_REQUEST) {
+            if (resultCode == RESULT_OK) {
+                if (filePathImageCamera != null && filePathImageCamera.exists()) {
+                    Uri photoURI = FileProvider.getUriForFile(ChatActivity.this,
+                            BuildConfig.APPLICATION_ID + ".provider", filePathImageCamera);
+
+                    sendImageToFireBase(photoURI);
+                } else {
+                    //IS NULL
+                }
+            }
+        } else if (requestCode == REQUEST_VIDEO_CAPTURE && resultCode == RESULT_OK) {
+            Uri videoUri = data.getData();
+            Log.e(TAG,""+videoUri);
+           // mVideoView.setVideoURI(videoUri);
         }
+
+    }
+
+    private void sendLocationToFirebase(LatLng latLng, Place place) {
+        String message = mChatMessageView.getText().toString();
+
+
+        String current_user_ref = "messages/" + mCurrentUserId + "/" + mChatUser;
+        String chat_user_ref = "messages/" + mChatUser + "/" + mCurrentUserId;
+
+        DatabaseReference user_message_push = mRootRef.child("messages")
+                .child(mCurrentUserId).child(mChatUser).push();
+
+        String push_id = user_message_push.getKey();
+
+        MessageModel messageModel = new MessageModel();
+        messageModel.setMessage(message);
+        messageModel.setSeen(false);
+        //  messageModel.setTime(ServerValue.TIMESTAMP);
+        messageModel.setFrom(mCurrentUserId);
+
+        MapModel model = new MapModel();
+        model.setLatitude(latLng.latitude + "");
+        model.setLongitude(latLng.longitude + "");
+        model.setPlace_name(place.getName() + "");
+        model.setPlace_address(place.getAddress() + "");
+        messageModel.setMapModel(model);
+       /* Messages messages = new Messages();
+        messages.setMapModel(model);*/
+
+        Map messageMap = new HashMap();
+        messageMap.put("message", message);
+
+        messageMap.put("seen", false);
+        messageMap.put("type", "text");
+        messageMap.put("time", ServerValue.TIMESTAMP);
+        messageMap.put("from", mCurrentUserId);
+
+
+        Map messageUserMap = new HashMap();
+        messageUserMap.put(current_user_ref + "/" + push_id, messageModel);
+        messageUserMap.put(chat_user_ref + "/" + push_id, messageModel);
+
+        mChatMessageView.setText("");
+
+        mRootRef.child("Chat").child(mCurrentUserId).child(mChatUser).child("seen").setValue(true);
+        mRootRef.child("Chat").child(mCurrentUserId).child(mChatUser).child("timestamp").setValue(ServerValue.TIMESTAMP);
+
+        mRootRef.child("Chat").child(mChatUser).child(mCurrentUserId).child("seen").setValue(false);
+        mRootRef.child("Chat").child(mChatUser).child(mCurrentUserId).child("timestamp").setValue(ServerValue.TIMESTAMP);
+
+        mRootRef.updateChildren(messageUserMap, new DatabaseReference.CompletionListener() {
+            @Override
+            public void onComplete(DatabaseError databaseError, DatabaseReference databaseReference) {
+
+                if (databaseError != null) {
+
+                    Log.d("CHAT_LOG", databaseError.getMessage().toString());
+
+                }
+
+            }
+        });
+
+    }
+
+    private void sendImageToFireBase(Uri imageUri) {
+        final String current_user_ref = "messages/" + mCurrentUserId + "/" + mChatUser;
+        final String chat_user_ref = "messages/" + mChatUser + "/" + mCurrentUserId;
+
+        DatabaseReference user_message_push = mRootRef.child("messages")
+                .child(mCurrentUserId).child(mChatUser).push();
+
+        final String push_id = user_message_push.getKey();
+
+
+        final StorageReference filepath = mImageStorage.child("message_images").child(push_id + ".jpg");
+
+        filepath.putFile(imageUri).addOnCompleteListener(new OnCompleteListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onComplete(@NonNull Task<UploadTask.TaskSnapshot> task) {
+
+                if (task.isSuccessful()) {
+                    String download_url = task.getResult().getDownloadUrl().toString();
+
+                    MessageModel messageModel = new MessageModel();
+                    messageModel.setMessage("photo");
+                    messageModel.setFrom(mCurrentUserId);
+
+                    FileModel fileModel = new FileModel();
+                    fileModel.setUrl_file(download_url);
+                    fileModel.setType("image");
+                    messageModel.setFileModel(fileModel);
+
+                    Map messageMap = new HashMap();
+                    messageMap.put("message", download_url);
+                    messageMap.put("seen", false);
+                    messageMap.put("type", "image");
+                    messageMap.put("time", ServerValue.TIMESTAMP);
+                    messageMap.put("from", mCurrentUserId);
+
+
+                    Map messageUserMap = new HashMap();
+                    messageUserMap.put(current_user_ref + "/" + push_id, messageModel);
+                    messageUserMap.put(chat_user_ref + "/" + push_id, messageModel);
+
+                    mChatMessageView.setText("");
+
+
+                    mRootRef.updateChildren(messageUserMap, new DatabaseReference.CompletionListener() {
+                        @Override
+                        public void onComplete(DatabaseError databaseError, DatabaseReference databaseReference) {
+
+                            if (databaseError != null) {
+
+                                Log.d("CHAT_LOG", databaseError.getMessage().toString());
+
+                            }
+
+                        }
+                    });
+
+
+                }
+
+            }
+        });
 
     }
 
@@ -453,7 +560,27 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
     private void loadMessages() {
 
+        mRootRef = FirebaseDatabase.getInstance().getReference();
         DatabaseReference messageRef = mRootRef.child("messages").child(mCurrentUserId).child(mChatUser);
+        final MessageFirebaseAdapter firebaseAdapter = new MessageFirebaseAdapter(messageRef, mCurrentUserId, this, this);
+        firebaseAdapter.registerAdapterDataObserver(new RecyclerView.AdapterDataObserver() {
+            @Override
+            public void onItemRangeInserted(int positionStart, int itemCount) {
+                super.onItemRangeInserted(positionStart, itemCount);
+                int friendlyMessageCount = firebaseAdapter.getItemCount();
+                int lastVisiblePosition = mLinearLayout.findLastCompletelyVisibleItemPosition();
+                if (lastVisiblePosition == -1 ||
+                        (positionStart >= (friendlyMessageCount - 1) &&
+                                lastVisiblePosition == (positionStart - 1))) {
+                    mMessagesList.scrollToPosition(positionStart);
+                }
+            }
+        });
+        mMessagesList.setLayoutManager(mLinearLayout);
+        mMessagesList.setAdapter(firebaseAdapter);
+        mRefreshLayout.setRefreshing(false);
+
+       /* DatabaseReference messageRef = mRootRef.child("messages").child(mCurrentUserId).child(mChatUser);
 
         Query messageQuery = messageRef.limitToLast(mCurrentPage * TOTAL_ITEMS_TO_LOAD);
 
@@ -503,7 +630,33 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
             public void onCancelled(DatabaseError databaseError) {
 
             }
-        });
+        });*/
+
+    }
+
+
+    @Override
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.btn_camera:
+                openCamera();
+                break;
+            case R.id.btn_video:
+                openVideo();
+                break;
+            case R.id.btn_gallery:
+                openGallery();
+                break;
+            case R.id.btn_location:
+                sendLocation();
+                break;
+            default:
+                break;
+
+        }
+    }
+
+    private void sendMessage(String name) {
 
     }
 
@@ -522,16 +675,30 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
             String push_id = user_message_push.getKey();
 
+            MessageModel messageModel = new MessageModel();
+            messageModel.setMessage(message);
+            messageModel.setSeen(false);
+            //  messageModel.setTime(ServerValue.TIMESTAMP);
+            messageModel.setFrom(mCurrentUserId);
+
+            MapModel model = new MapModel();
+            model.setLatitude("125255.25255366");
+            model.setLongitude("125255.25255366");
+            Messages messages = new Messages();
+            messages.setMapModel(model);
+
             Map messageMap = new HashMap();
             messageMap.put("message", message);
+
             messageMap.put("seen", false);
             messageMap.put("type", "text");
             messageMap.put("time", ServerValue.TIMESTAMP);
             messageMap.put("from", mCurrentUserId);
 
+
             Map messageUserMap = new HashMap();
-            messageUserMap.put(current_user_ref + "/" + push_id, messageMap);
-            messageUserMap.put(chat_user_ref + "/" + push_id, messageMap);
+            messageUserMap.put(current_user_ref + "/" + push_id, messageModel);
+            messageUserMap.put(chat_user_ref + "/" + push_id, messageModel);
 
             mChatMessageView.setText("");
 
@@ -558,29 +725,14 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
 
     }
 
-    @Override
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.btn_camera:
-                openCamera();
-                break;
-            case R.id.btn_video:
-                openVideo();
-                break;
-            case R.id.btn_gallery:
-                openGallery();
-                break;
-            case R.id.btn_location:
-                sendLocation();
-                break;
-            default:
-                break;
-
-        }
-    }
 
     private void sendLocation() {
-        locationPlacesIntent();
+        try {
+            PlacePicker.IntentBuilder builder = new PlacePicker.IntentBuilder();
+            startActivityForResult(builder.build(this), PLACE_PICKER_REQUEST);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     private void openGallery() {
@@ -594,9 +746,39 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     private void openVideo() {
+        Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+        if (takeVideoIntent.resolveActivity(getPackageManager()) != null) {
+            long maxVideoSize = 2 * 1024 * 1024;
+            takeVideoIntent.putExtra(MediaStore.EXTRA_SIZE_LIMIT, maxVideoSize);
+            startActivityForResult(takeVideoIntent, REQUEST_VIDEO_CAPTURE);
+        }
+        /*Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+        fileUri = getOutputMediaFileUri(MEDIA_TYPE_VIDEO);
+        Toast.makeText(getApplicationContext(), fileUri.toString(), Toast.LENGTH_LONG).show();
+        takeVideoIntent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
+
+        long maxVideoSize = 2 * 1024 * 1024;
+        takeVideoIntent.putExtra(MediaStore.EXTRA_SIZE_LIMIT, maxVideoSize);
+
+        takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+
+        if (takeVideoIntent.resolveActivity(getPackageManager()) != null) {
+            startActivityForResult(takeVideoIntent, REQUEST_VIDEO_CAPTURE);
+        }*/
+
+
+        /* recordVideo();*/
     }
 
     private void openCamera() {
+        String photoName = DateFormat.format("yyyy-MM-dd_hhmmss", new Date()).toString();
+        filePathImageCamera = new File(Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_PICTURES), photoName + "camera.jpg");
+        Intent it = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        Uri photoURI = FileProvider.getUriForFile(ChatActivity.this,
+                BuildConfig.APPLICATION_ID + ".provider",
+                filePathImageCamera);
+        it.putExtra(MediaStore.EXTRA_OUTPUT, photoURI);
+        startActivityForResult(it, IMAGE_CAMERA_REQUEST);
     }
 
 
@@ -629,37 +811,57 @@ public class ChatActivity extends AppCompatActivity implements View.OnClickListe
                 .onSameThread()
                 .check();
     }
-    private void locationPlacesIntent(){
-        try {
-            PlacePicker.IntentBuilder builder = new PlacePicker.IntentBuilder();
-            startActivityForResult(builder.build(this), PLACE_PICKER_REQUEST);
-        } catch (GooglePlayServicesRepairableException | GooglePlayServicesNotAvailableException e) {
-            e.printStackTrace();
-        }
-    }
-    private void sendFileFirebase(StorageReference storageReference, final Uri file){
-        if (storageReference != null){
-            final String name = DateFormat.format("yyyy-MM-dd_hhmmss", new Date()).toString();
-            StorageReference imageGalleryRef = storageReference.child(name+"_gallery");
-            UploadTask uploadTask = imageGalleryRef.putFile(file);
-            uploadTask.addOnFailureListener(new OnFailureListener() {
-                @Override
-                public void onFailure(@NonNull Exception e) {
-                    //Log.e(TAG,"onFailure sendFileFirebase "+e.getMessage());
-                }
-            }).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-                @Override
-                public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-                  //  Log.i(TAG,"onSuccess sendFileFirebase");
-                    Uri downloadUrl = taskSnapshot.getDownloadUrl();
-                    FileModel fileModel = new FileModel("img",downloadUrl.toString(),name,"");
-                   /* ChatModel chatModel = new ChatModel(userModel,"",Calendar.getInstance().getTime().getTime()+"",fileModel);
-                    mRootRef.child(CHAT_REFERENCE).push().setValue(chatModel);*/
-                }
-            });
-        }else{
-            //IS NULL
-        }
+
+    private void locationPlacesIntent() {
 
     }
+
+
+    @Override
+    public void clickImageChat(View view, int position, String nameUser, String urlPhotoUser, String urlPhotoClick) {
+        Intent intent = new Intent(this, FullScreenImageActivity.class);
+        intent.putExtra("nameUser", nameUser);
+        intent.putExtra("urlPhotoUser", urlPhotoUser);
+        intent.putExtra("urlPhotoClick", urlPhotoClick);
+        startActivity(intent);
+    }
+
+    @Override
+    public void clickImageMapChat(View view, int position, String latitude, String longitude) {
+        String uri = String.format("geo:%s,%s?z=17&q=%s,%s", latitude, longitude, latitude, longitude);
+        Intent intent = new Intent(Intent.ACTION_VIEW, Uri.parse(uri));
+        startActivity(intent);
+    }
+
+    private void recordVideo() {
+        Intent intent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+
+        fileUri = Utility.getOutputMediaFileUri(MEDIA_TYPE_VIDEO);
+
+        // set video quality
+        intent.putExtra(MediaStore.EXTRA_VIDEO_QUALITY, 1);
+
+
+        // intent.putExtra(MediaStore.EXTRA_OUTPUT, fileUri); // set the image file
+        // name
+
+        // start the video capture Intent
+        startActivityForResult(intent, CAMERA_CAPTURE_VIDEO_REQUEST_CODE);
+    }
+
+    @Override
+    protected void onSaveInstanceState(Bundle outState) {
+        super.onSaveInstanceState(outState);
+
+        outState.putParcelable("file_uri", fileUri);
+    }
+
+    @Override
+    protected void onRestoreInstanceState(Bundle savedInstanceState) {
+        super.onRestoreInstanceState(savedInstanceState);
+
+        // get the file url
+        fileUri = savedInstanceState.getParcelable("file_uri");
+    }
+
 }

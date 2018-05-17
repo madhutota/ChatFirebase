@@ -1,16 +1,27 @@
 package com.dev.chatfirebase.activities;
 
+import com.dev.chatfirebase.models.MapModel;
+
 /**
  * Created by AkshayeJH on 24/07/17.
  */
 
 public class Messages {
 
-    private String message, type;
-    private long  time;
+    private String message;
+    private long time;
     private boolean seen;
-
     private String from;
+    private String type;
+    private MapModel mapModel;
+
+    public MapModel getMapModel() {
+        return mapModel;
+    }
+
+    public void setMapModel(MapModel mapModel) {
+        this.mapModel = mapModel;
+    }
 
     public Messages(String from) {
         this.from = from;
@@ -63,7 +74,7 @@ public class Messages {
         this.seen = seen;
     }
 
-    public Messages(){
+    public Messages() {
 
     }
 

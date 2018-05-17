@@ -27,8 +27,7 @@ import de.hdodenhof.circleimageview.CircleImageView;
  * Created by AkshayeJH on 24/07/17.
  */
 
-public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder>{
-
+public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageViewHolder> {
 
     private List<Messages> mMessageList;
     private DatabaseReference mUserDatabase;
@@ -43,7 +42,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     public MessageViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
 
         View v = LayoutInflater.from(parent.getContext())
-                .inflate(R.layout.message_single_layout ,parent, false);
+                .inflate(R.layout.message_single_layout, parent, false);
 
         return new MessageViewHolder(v);
 
@@ -68,6 +67,11 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     }
 
     @Override
+    public int getItemViewType(int position) {
+        return super.getItemViewType(position);
+    }
+
+    @Override
     public void onBindViewHolder(final MessageViewHolder viewHolder, int i) {
 
         Messages c = mMessageList.get(i);
@@ -81,6 +85,7 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
         mUserDatabase.addValueEventListener(new ValueEventListener() {
             @Override
             public void onDataChange(DataSnapshot dataSnapshot) {
+
 
                 String name = dataSnapshot.child("name").getValue().toString();
                 String image = dataSnapshot.child("thumb_image").getValue().toString();
@@ -98,14 +103,10 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
             }
         });
 
-        if(message_type.equals("text")) {
-
+        if (message_type.equals("text")) {
             viewHolder.messageText.setText(c.getMessage());
             viewHolder.messageImage.setVisibility(View.INVISIBLE);
-
-
         } else {
-
             viewHolder.messageText.setVisibility(View.INVISIBLE);
             Picasso.with(viewHolder.profileImage.getContext()).load(c.getMessage())
                     .placeholder(R.drawable.default_avatar).into(viewHolder.messageImage);
@@ -118,10 +119,6 @@ public class MessageAdapter extends RecyclerView.Adapter<MessageAdapter.MessageV
     public int getItemCount() {
         return mMessageList.size();
     }
-
-
-
-
 
 
 }

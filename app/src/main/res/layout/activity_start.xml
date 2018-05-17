@@ -4,7 +4,7 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/colorPrimary"
+    android:background="@color/app_background"
     tools:context=".activities.StartActivity">
 
     <TextView
@@ -14,7 +14,6 @@
         android:layout_above="@+id/start_login_btn"
         android:layout_centerHorizontal="true"
         android:layout_marginBottom="50dp"
-        android:text="Welcome to Lapit \n Chat App"
         android:textAlignment="center"
         android:textColor="@android:color/white"
         android:textSize="22sp"
